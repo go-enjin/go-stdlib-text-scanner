@@ -69,6 +69,7 @@ const (
 	ScanRawStrings = 1 << -RawString
 	ScanComments   = 1 << -Comment
 	SkipComments   = 1 << -skipComment // if set with ScanComments, comments become white space
+	KeepComments   = 1 << -keepComment // comments are treated as normal text, overrides ScanComments and SkipComments
 	GoTokens       = ScanIdents | ScanFloats | ScanChars | ScanStrings | ScanRawStrings | ScanComments | SkipComments
 )
 
@@ -85,6 +86,7 @@ const (
 
 	// internal use only
 	skipComment
+	keepComment
 )
 
 var tokenString = map[rune]string{
@@ -714,14 +716,16 @@ redo:
 			}
 		case '/':
 			ch = s.next()
-			if (ch == '/' || ch == '*') && s.Mode&ScanComments != 0 {
-				if s.Mode&SkipComments != 0 {
-					s.tokPos = -1 // don't collect token text
+			if s.Mode&KeepComments == 0 {
+				if (ch == '/' || ch == '*') && s.Mode&ScanComments != 0 {
+					if s.Mode&SkipComments != 0 {
+						s.tokPos = -1 // don't collect token text
+						ch = s.scanComment(ch)
+						goto redo
+					}
 					ch = s.scanComment(ch)
-					goto redo
+					tok = Comment
 				}
-				ch = s.scanComment(ch)
-				tok = Comment
 			}
 		case '`':
 			if s.Mode&ScanRawStrings != 0 {
